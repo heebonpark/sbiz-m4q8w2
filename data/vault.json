@@ -1,0 +1,160 @@
+{
+  "v": 3,
+  "iter": 310000,
+  "salt": "4smizaGOx2Ufhx89uqC5hw==",
+  "checkIv": "49fgA2BOm+IM+4NK",
+  "checkCt": "T7nMZQuJo6hJJ1iEIiP9SwlFSPYSDxuk97SQkfc5LcmmJPk=",
+  "dataYM": "2026.09",
+  "builtAt": "2026-11-24",
+  "totalStores": 2753778,
+  "totalBytes": 149432642,
+  "sidoCount": 16,
+  "sidos": [
+    {
+      "slug": "gyeonggi",
+      "name": "경기도",
+      "short": "경기",
+      "count": 666254,
+      "bldCount": 218867,
+      "new2026": 53428,
+      "bytes": 39018601
+    },
+    {
+      "slug": "seoul",
+      "name": "서울특별시",
+      "short": "서울",
+      "count": 552422,
+      "bldCount": 160105,
+      "new2026": 42528,
+      "bytes": 30121426
+    },
+    {
+      "slug": "jeonnam_gwangju",
+      "name": "전남광주통합특별시",
+      "short": "전남광주",
+      "count": 178050,
+      "bldCount": 90071,
+      "new2026": 12706,
+      "bytes": 9785474
+    },
+    {
+      "slug": "gyeongnam",
+      "name": "경상남도",
+      "short": "경남",
+      "count": 170781,
+      "bldCount": 86398,
+      "new2026": 12230,
+      "bytes": 9352950
+    },
+    {
+      "slug": "busan",
+      "name": "부산광역시",
+      "short": "부산",
+      "count": 157296,
+      "bldCount": 65553,
+      "new2026": 12115,
+      "bytes": 8148639
+    },
+    {
+      "slug": "gyeongbuk",
+      "name": "경상북도",
+      "short": "경북",
+      "count": 143799,
+      "bldCount": 83820,
+      "new2026": 10050,
+      "bytes": 7782765
+    },
+    {
+      "slug": "incheon",
+      "name": "인천광역시",
+      "short": "인천",
+      "count": 136379,
+      "bldCount": 43557,
+      "new2026": 11625,
+      "bytes": 7024882
+    },
+    {
+      "slug": "chungnam",
+      "name": "충청남도",
+      "short": "충남",
+      "count": 123567,
+      "bldCount": 60826,
+      "new2026": 9310,
+      "bytes": 6560634
+    },
+    {
+      "slug": "daegu",
+      "name": "대구광역시",
+      "short": "대구",
+      "count": 116628,
+      "bldCount": 52844,
+      "new2026": 8362,
+      "bytes": 5820575
+    },
+    {
+      "slug": "gangwon",
+      "name": "강원특별자치도",
+      "short": "강원",
+      "count": 109517,
+      "bldCount": 60161,
+      "new2026": 7264,
+      "bytes": 5787715
+    },
+    {
+      "slug": "jeonbuk",
+      "name": "전북특별자치도",
+      "short": "전북",
+      "count": 97942,
+      "bldCount": 52727,
+      "new2026": 6921,
+      "bytes": 5147511
+    },
+    {
+      "slug": "chungbuk",
+      "name": "충청북도",
+      "short": "충북",
+      "count": 92937,
+      "bldCount": 48014,
+      "new2026": 7104,
+      "bytes": 4837535
+    },
+    {
+      "slug": "daejeon",
+      "name": "대전광역시",
+      "short": "대전",
+      "count": 79691,
+      "bldCount": 32633,
+      "new2026": 5891,
+      "bytes": 3857502
+    },
+    {
+      "slug": "jeju",
+      "name": "제주특별자치도",
+      "short": "제주",
+      "count": 59101,
+      "bldCount": 33056,
+      "new2026": 4407,
+      "bytes": 2886777
+    },
+    {
+      "slug": "ulsan",
+      "name": "울산광역시",
+      "short": "울산",
+      "count": 53777,
+      "bldCount": 26259,
+      "new2026": 3989,
+      "bytes": 2594212
+    },
+    {
+      "slug": "sejong",
+      "name": "세종특별자치시",
+      "short": "세종",
+      "count": 15637,
+      "bldCount": 4204,
+      "new2026": 1329,
+      "bytes": 703764
+    }
+  ],
+  "rekeyedAt": "2026-11-24",
+  "vworldEncrypted": true
+}

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="clean">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="theme-color" content="#2f6fed">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="상권지도">
+<title>Data Intel PRO | 비공개 소상공인 상권 지도</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="./vendor/leaflet.css">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<!-- ==================== Private Vault Lock Screen ==================== -->
+<div class="lock-screen" id="lockScreen">
+  <form class="lock-card" id="lockForm" autocomplete="off">
+    <div class="lock-head">
+      <div class="lock-badge">🔒</div>
+      <h1>비공개 소상공인 상권 지도</h1>
+      <p>전국 상가(상권)정보 · OpenAPI 실시간 연동<br>AES-256-GCM 암호화 · 비밀번호를 입력해야 조회됩니다.</p>
+    </div>
+    <div class="pw-wrap">
+      <input id="pwInput" type="password" placeholder="접속 비밀번호 입력" autocomplete="current-password" required>
+      <button type="button" class="pw-eye" id="pwToggle" aria-label="비밀번호 보기">👁</button>
+    </div>
+    <label class="lock-toggle">
+      <input type="checkbox" id="pwRemember" checked>
+      <span>이 기기에서 로그인 유지 (모바일 자동 잠금 해제)</span>
+    </label>
+    <div class="lock-err" id="lockErr"></div>
+    <button type="submit" class="lock-submit" id="pwSubmit">잠금 해제</button>
+    <div class="lock-foot">
+      모든 상권 데이터는 브라우저 안에서만 복호화됩니다.<br>
+      기업분석 · 공동주택 입찰 앱과 동일한 PBKDF2-SHA256 + AES-256-GCM 보안 구조입니다.
+    </div>
+  </form>
+</div>
+
+<!-- ==================== Vault Boot Loader ==================== -->
+<div class="loader" id="loader" hidden>
+  <div class="box">
+    <div class="title">🔐 상권 Vault 복호화 중</div>
+    <div class="bar"><i id="lbar"></i></div>
+    <div class="note" id="ltxt" style="margin-top:8px">암호화 메타 정보 불러오는 중…</div>
+  </div>
+</div>
+
+<!-- ==================== Main App Shell ==================== -->
+<div id="appShell" hidden>
+<div id="app">
+  <div id="top">
+    <button class="mob-toggle" id="bMobSide" title="사이드바 열기/닫기">☰</button>
+    <div class="brand">
+      <b>Data Intel <i>PRO</i> · 상권 지도</b>
+      <span id="dataDate">소상공인시장진흥공단 상가(상권)정보 · 비공개 Vault</span>
+    </div>
+    <div class="stats">
+      <div class="stat">전체<b id="sTotal">0</b></div>
+      <div class="stat">필터<b id="sFilt">0</b></div>
+      <div class="stat opt">화면<b id="sView">0</b></div>
+      <div class="stat sel">선택<b id="sSel">0</b></div>
+      <div class="stat" id="stApi" style="display:none">실시간 API<b id="sApi" style="color:var(--accent2)">0</b></div>
+      <div class="stat" id="stNew" style="display:none">신규 개업<b id="sNew" style="color:#16a34a">0</b></div>
+      <div class="stat" id="stClosed" style="display:none">폐업<b id="sClosed" style="color:#e11d48">0</b></div>
+      <div class="stat" id="stCust" style="display:none">고객<b id="sCust">0</b></div>
+    </div>
+    <div class="tools">
+      <div class="seg" title="표시 방식">
+        <button data-mode="auto" class="on">자동</button><button data-mode="cluster">클러스터</button><button data-mode="point">점</button><button data-mode="heat">히트맵</button>
+      </div>
+      <span class="sep"></span>
+      <div class="seg">
+        <button id="tPan" class="on" title="이동·클릭 정보 (Esc)">✋ 이동</button>
+        <button id="tRect" title="사각형 영역 선택 (Alt+드래그: 제외)">▭ 사각형</button>
+        <button id="tLasso" title="자유곡선 선택 (Alt+드래그: 제외)">✎ 올가미</button>
+        <button id="tCircle" title="반경 선택 (Alt+드래그: 제외)">◯ 반경</button>
+      </div>
+      <button id="bSelPanel">☰ 선택목록</button>
+      <button id="bAiAnalyze" title="현재 화면 또는 선택 업소 Gemini AI 상권 분석">✨ AI</button>
+      <span class="sep"></span>
+      <select id="baseSel" title="배경지도">
+        <option value="vbase">브이월드 일반정밀(도로)</option>
+        <option value="vwhite">브이월드 백지도(상권최적)</option>
+        <option value="vmidnight">브이월드 야간지도</option>
+        <option value="vhyb">브이월드 항공+라벨</option>
+        <option value="vsat">브이월드 항공영상</option>
+        <option value="gsoft">구글 지도(연하게)</option>
+        <option value="gmap">구글 지도</option>
+        <option value="gdark">구글 지도(어둡게)</option>
+        <option value="gsat">구글 위성</option>
+        <option value="esri">Esri 회색</option>
+        <option value="osm">OpenStreetMap</option>
+      </select>
+      <div class="seg" title="행정구역 경계 및 국토 공간정보">
+        <button id="ovSido" title="행정구역 시·도 경계">시도</button>
+        <button id="ovSgg" title="행정구역 시·군·구 경계·명칭">🏛 시군구</button>
+        <button id="ovEmd" title="행정구역 읍·면·동 경계·명칭 (줌 11+)">읍면동</button>
+        <button id="ovCadastral" title="브이월드 연속지적도 (필지 경계·지번)">📐 지적</button>
+        <button id="ovZoning" title="브이월드 도시 용도지역 (상업·주거·공업·녹지)">🏙 용도</button>
+        <button id="ovBldg" title="브이월드 건물 통합 레이어">🏢 건물</button>
+      </div>
+      <div class="seg" title="명칭·마커 표시 및 정밀 측정">
+        <button id="ovLabel" class="on" title="고배율(Z17+) 상호명 라벨 및 지명 표시">🏷 명칭</button>
+        <button id="ovMarker" class="on" title="지도 상가 마커 표시 ON/OFF">📍 마커</button>
+        <button id="ovMeasure" title="거리(m/km)·면적(㎡·평) 정밀 측정 모드">📏 측정</button>
+      </div>
+      <select id="themeSel" title="테마">
+        <option value="clean">클린화이트</option><option value="navy">다크네이비</option><option value="purple">미드나잇퍼플</option>
+        <option value="forest">포레스트그린</option><option value="obsidian">옵시디언블랙</option>
+      </select>
+      <button id="bLocate" title="내 위치">◎</button>
+      <button id="bSettings" title="앱 설정 · API 키 · 백업 · PWA">⚙️</button>
+      <button id="bLockNow" title="즉시 잠금 (로그아웃)">🔒</button>
+    </div>
+  </div>
+
+  <div id="side">
+    <div class="tabs">
+      <button data-tab="data" class="act">데이터</button>
+      <button data-tab="api">🔌 API</button>
+      <button data-tab="filter">필터</button>
+      <button data-tab="cust">고객</button>
+      <button data-tab="cmp">개폐업</button>
+      <button data-tab="list">목록</button>
+    </div>
+
+    <!-- ===== TAB: 데이터 (Vault 온디맨드 + ZIP/CSV) ===== -->
+    <div class="tabpane act" id="tab-data">
+      <div class="card2" id="vaultBox">
+        <div class="row2" style="justify-content:space-between;margin-bottom:4px">
+          <div style="font-weight:700">🔐 암호화 Vault 시도별 불러오기</div>
+          <span class="note" id="vaultBadge">준비 중…</span>
+        </div>
+        <div class="note">필요한 시도만 클릭하면 브라우저에서 즉시 AES-256-GCM 복호화해 지도에 올립니다. (여러 시도 동시 로드 가능)</div>
+        <div class="sido-grid" id="sidoGrid"></div>
+        <div class="row2" style="margin-top:6px">
+          <button id="bLoadCapital" class="primary" style="flex:1">수도권 빠른 로드 (인천·서울·경기)</button>
+        </div>
+      </div>
+
+      <div class="drop" id="drop"><b>추가 ZIP 또는 CSV 끌어다 놓기 / 클릭</b>
+        다른 분기 ZIP 또는 개별 CSV도 압축 풀기 없이 자동 병합</div>
+      <input type="file" id="fileIn" accept=".csv,.zip,text/csv,application/zip" multiple style="display:none">
+      <div id="flist" style="margin-top:8px"></div>
+      <div class="row2" style="margin:10px 0">
+        <button id="bExportFilt" disabled>⤓ 필터 결과 병합 CSV</button>
+        <button id="bReset" disabled>데이터 비우기</button>
+      </div>
+      <div class="note">
+        · 암호화 시도 데이터 + 실시간 OpenAPI + 로컬 ZIP/CSV 모두 자동 통합<br>
+        · 지도 우클릭 = 주소·반경 선택 · Ctrl+클릭 = 업소 선택/해제<br>
+        · 내보낸 CSV는 엑셀에서 더블클릭으로 바로 열림 (UTF-8 BOM)
+      </div>
+    </div>
+
+    <!-- ===== TAB: API (공공데이터포털 OpenAPI + 진단 보드 + 국세청) ===== -->
+    <div class="tabpane" id="tab-api">
+      <div class="card2">
+        <div style="font-weight:700;margin-bottom:4px">🔌 공공데이터포털 OpenAPI 실시간 연동</div>
+        <div class="note" style="margin-bottom:8px">Encoding/Decoding 인증키를 자동 정규화해 401/403 오류를 방지합니다. 키는 이 브라우저에만 저장됩니다.</div>
+        <div class="key-row">
+          <input type="password" id="apiKeyIn" placeholder="공공데이터포털 일반 인증키 (Encoding / Decoding)">
+          <button type="button" id="apiToggleEye" title="키 보기/숨기기">👁</button>
+          <button type="button" id="apiSaveKey" class="primary">저장</button>
+        </div>
+        <div class="row2" style="justify-content:space-between;margin-top:7px">
+          <span class="note">공공데이터 키: <code id="apiKeyMask">미입력</code></span>
+          <button type="button" id="btnCheckApis" style="font-weight:700">🩺 전체 API 연결 진단 (6종)</button>
+        </div>
+        <div style="margin-top:9px;padding-top:9px;border-top:1px solid var(--line)">
+          <div style="font-weight:700;font-size:12px;margin-bottom:4px">🗺 브이월드 디지털트윈국토 인증키 <span class="note" id="vwSourceBadge">(Vault 암호화 자동연동)</span></div>
+          <div class="key-row">
+            <input type="password" id="vwKeyIn" placeholder="브이월드 인증키 (Vault 자동 탑재 / 수동 교체 가능)">
+            <button type="button" id="vwToggleEye" title="키 보기/숨기기">👁</button>
+            <button type="button" id="vwSaveKey">저장</button>
+          </div>
+          <div class="note" style="margin-top:4px">적용 키: <code id="vwKeyMask">확인 중…</code> · 배경지도·연속지적도·용도지역·공시지가·정밀 지오코딩 지원</div>
+        </div>
+        <div id="apiDiagBoard"></div>
+      </div>
+
+      <div class="card2">
+        <div style="font-weight:700;margin-bottom:6px">📡 지도 기준 상권·상가 실시간 수집 (sdsc2)</div>
+        <div class="grid2" style="margin-bottom:6px">
+          <span>반경</span>
+          <select id="apiRadius" style="width:100%">
+            <option value="300">300 m (도보 4분)</option>
+            <option value="500" selected>500 m (역세권)</option>
+            <option value="1000">1,000 m (1 km)</option>
+            <option value="2000">2,000 m (2 km)</option>
+          </select>
+          <span>업종</span>
+          <select id="apiL1" style="width:100%">
+            <option value="">전체 업종</option>
+            <option value="I2">음식 (I2)</option>
+            <option value="G2">소매 (G2)</option>
+            <option value="L1">부동산 (L1)</option>
+            <option value="M1">과학·기술 (M1)</option>
+            <option value="P1">교육 (P1)</option>
+            <option value="Q1">보건의료 (Q1)</option>
+            <option value="R1">예술·스포츠 (R1)</option>
+            <option value="S2">수리·개인 (S2)</option>
+            <option value="I1">숙박 (I1)</option>
+            <option value="N1">시설관리·임대 (N1)</option>
+          </select>
+          <span>최대건수</span>
+          <select id="apiMaxRows" style="width:100%">
+            <option value="500">최대 500건 (1페이지)</option>
+            <option value="1000" selected>최대 1,000건 (1페이지)</option>
+            <option value="3000">최대 3,000건 (3페이지)</option>
+          </select>
+        </div>
+        <div class="api-grid">
+          <button type="button" class="aibtn" id="btnApiRadius">📍 지도 중심 반경 수집</button>
+          <button type="button" class="aibtn teal" id="btnApiRect">▭ 현재 화면 영역 수집</button>
+          <button type="button" class="aibtn emerald" id="btnApiDong">🏘 선택 행정동 수집</button>
+          <button type="button" class="aibtn amber" id="btnApiZones">🗺 주요 상권 영역 표시</button>
+        </div>
+        <div class="row2" style="justify-content:space-between;margin-top:6px">
+          <span class="note" id="apiDongHint">행정동 필터 선택 시 8자리 표준코드 자동 연동</span>
+          <button type="button" id="btnApiClearZones" style="padding:3px 7px;font-size:11px">상권 숨기기</button>
+        </div>
+        <div class="apilog" id="apiLog">대기 중… 인증키 저장 후 [전체 API 연결 진단] 또는 수집 버튼을 눌러주세요.</div>
+        <div class="row2" style="margin-top:8px">
+          <button type="button" id="btnClearApiCache" class="danger">API 캐시 초기화</button>
+          <a class="pill-link" href="https://www.data.go.kr/data/15012005/openapi.do" target="_blank" rel="noopener">상권정보 API 신청 ↗</a>
+          <a class="pill-link" href="https://www.data.go.kr/data/15081808/openapi.do" target="_blank" rel="noopener">국세청 상태 API ↗</a>
+        </div>
+      </div>
+
+      <div class="card2">
+        <div style="font-weight:700;margin-bottom:4px">🏛 국세청 사업자등록 상태 실시간 조회</div>
+        <div class="note" style="margin-bottom:6px">사업자번호(10자리)를 줄바꿈·쉼표로 여러 개 입력하면 최대 100건씩 계속/휴업/폐업 상태를 즉시 확인합니다.</div>
+        <textarea id="ntsInput" placeholder="예)&#10;124-81-00998&#10;220-81-62517"></textarea>
+        <div class="row2" style="margin-top:6px">
+          <button type="button" class="primary" id="btnNtsCheck" style="flex:1">사업자상태 실시간 조회</button>
+          <button type="button" id="btnNtsCsv" disabled>⤓ 결과 CSV</button>
+        </div>
+        <div id="ntsResult" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card2">
+        <div style="font-weight:700;margin-bottom:4px">💻 터미널 대량 자동수집 (CORS 무관)</div>
+        <div class="note">브라우저 CORS 차단 시 또는 특정 지역 대량 수집 시 Node 스크립트를 사용하세요.</div>
+        <div class="codebox" id="cliCmd">node scripts/fetch_sbiz_api.mjs --key "내_공공데이터_인증키" --lat 37.4895 --lon 126.7235 --radius 1000</div>
+        <button type="button" id="btnCopyCli" style="margin-top:6px">명령어 복사</button>
+      </div>
+    </div>
+
+    <!-- ===== TAB: 필터 ===== -->
+    <div class="tabpane" id="tab-filter">
+      <div class="sec">
+        <h3>상호·주소·KSIC·우편번호 검색 <span class="lnk" id="clearAll">필터 전체 초기화</span></h3>
+        <div class="key-row">
+          <input type="search" id="kw" placeholder="예) 스타벅스, I56111, 21387 (쉼표=또는 · 공백=그리고)">
+          <button type="button" id="bAiFilter" title="Gemini AI가 문장을 필터 조건으로 자동 변환">✨ AI</button>
+        </div>
+      </div>
+      <div class="sec"><h3>🆕 신규 등재 시기 <span class="cnt" id="c-regym">전체</span></h3>
+        <div class="chips" id="f-regym">
+          <span class="chip on" data-regym="all">전체</span>
+          <span class="chip" data-regym="3m">최근 3개월</span>
+          <span class="chip" data-regym="6m">최근 6개월</span>
+          <span class="chip" data-regym="1y">최근 1년</span>
+          <span class="chip" data-regym="2026">2026년 신규</span>
+          <span class="chip" data-regym="old">기존(22.08 이전)</span>
+        </div>
+      </div>
+      <div class="sec"><h3>🏪 점포 유형 (프랜차이즈·개인) <span class="cnt" id="c-fran">전체</span></h3>
+        <div class="chips" id="f-fran">
+          <span class="chip on" data-fran="all">전체</span>
+          <span class="chip" data-fran="ind">개인 점포만</span>
+          <span class="chip" data-fran="fran">프랜차이즈·지점만</span>
+        </div>
+      </div>
+      <div class="sec"><h3>🏢 건물 규모 (건물관리번호 입점 수) <span class="cnt" id="c-bld">전체</span></h3>
+        <div class="chips" id="f-bld">
+          <span class="chip on" data-bld="all">전체</span>
+          <span class="chip" data-bld="1-2">단독·소형(1~2)</span>
+          <span class="chip" data-bld="3-9">중형(3~9)</span>
+          <span class="chip" data-bld="10">대형 상가(10+)</span>
+          <span class="chip" data-bld="30">초대형(30+)</span>
+          <span class="chip" data-bld="100">메가빌딩(100+)</span>
+        </div>
+      </div>
+      <div class="sec"><h3>시도 <span class="cnt" id="c-sido"></span></h3><div class="chips" id="f-sido"></div></div>
+      <div class="sec"><h3>시군구 <span class="cnt" id="c-sgg"></span><span class="lnk" data-clr="sgg">해제</span></h3><div class="ml" id="f-sgg"></div></div>
+      <div class="sec"><h3>행정동 <span class="cnt" id="c-dong"></span><span class="lnk" data-clr="dong">해제</span></h3><div class="ml" id="f-dong"></div></div>
+      <div class="sec"><h3>🛣 도로명 (가로 상권) <span class="cnt" id="c-roadNm"></span><span class="lnk" data-clr="roadNm">해제</span></h3><div class="ml" id="f-roadNm"></div></div>
+      <div class="sec"><h3>📮 신우편번호 (영업권역) <span class="cnt" id="c-zip"></span><span class="lnk" data-clr="zip">해제</span></h3><div class="ml" id="f-zip"></div></div>
+      <div class="sec"><h3>업종 대분류 <span class="cnt" id="c-l1"></span></h3><div class="chips" id="f-l1"></div></div>
+      <div class="sec"><h3>업종 중분류 <span class="cnt" id="c-l2"></span><span class="lnk" data-clr="l2">해제</span></h3><div class="ml" id="f-l2"></div></div>
+      <div class="sec"><h3>업종 소분류 <span class="cnt" id="c-l3"></span><span class="lnk" data-clr="l3">해제</span></h3><div class="ml" id="f-l3"></div></div>
+      <div class="sec"><h3>층 <span class="cnt" id="c-floor"></span><span class="lnk" data-clr="floor">해제</span></h3><div class="ml" id="f-floor"></div></div>
+      <div class="sec">
+        <label class="row2" style="cursor:pointer"><input type="checkbox" id="onlySel"> 선택한 업소만 보기</label>
+        <label class="row2" style="cursor:pointer;margin-top:4px"><input type="checkbox" id="onlyApi"> 실시간 API 수집 업소만 보기</label>
+      </div>
+      <div class="sec"><button id="bFit">⌖ 필터 결과로 지도 이동</button></div>
+    </div>
+
+    <!-- ===== TAB: 고객 ===== -->
+    <div class="tabpane" id="tab-cust">
+      <div class="card2">
+        <div style="font-weight:700;margin-bottom:4px">📍 고객 주소 지오코딩 & 국세청 상태 연계</div>
+        <div class="note">고객 엑셀(xls/xlsx/csv) 주소를 상가정보와 대조해 좌표를 찾고, 사업자번호 열이 있으면 국세청 API로 휴·폐업 상태까지 한 번에 확인합니다.</div>
+      </div>
+      <div class="drop" id="cdrop"><b>고객 파일 선택</b>xls · xlsx · csv</div>
+      <input type="file" id="custIn" accept=".xls,.xlsx,.csv" style="display:none">
+      <div id="cmap" style="display:none;margin-top:12px">
+        <div class="grid2">
+          <span>시트</span><select id="cSheet" style="width:100%"></select>
+          <span>주소 열</span><select id="cAddr" style="width:100%"></select>
+          <span>이름 열</span><select id="cName" style="width:100%"></select>
+          <span>사업자 열</span><select id="cBiz" style="width:100%"></select>
+          <span>위도 열</span><select id="cLat" style="width:100%"></select>
+          <span>경도 열</span><select id="cLon" style="width:100%"></select>
+        </div>
+        <div class="note" id="cPreview" style="margin:6px 0"></div>
+        <button class="primary" id="bGeo" style="width:100%;padding:8px">지오코딩 실행</button>
+      </div>
+      <div id="cres" style="display:none;margin-top:12px">
+        <div class="kpis" id="cKpi"></div>
+        <div class="row2" style="margin-bottom:8px">
+          <label style="cursor:pointer"><input type="checkbox" id="cShow" checked> 지도에 표시</label>
+          <button id="bCustFit">⌖ 고객으로 이동</button>
+          <button id="bCustExp">⤓ 좌표·상태 CSV</button>
+        </div>
+        <div class="card2">
+          <div style="font-weight:700;margin-bottom:6px">고객 주변 상가 선택</div>
+          <div class="row2">반경 <input type="number" id="cRad" value="300" min="20" step="50" style="width:80px"> m
+            <button class="primary" id="bCustRad">선택</button></div>
+          <label class="row2 note" style="margin-top:6px;cursor:pointer"><input type="checkbox" id="cExSame" checked> 고객과 같은 건물(15m 이내) 업소 제외 → 미가입 잠재고객</label>
+        </div>
+        <div class="row2" style="margin-bottom:6px">
+          <button id="bCustVw" class="primary" title="매칭 실패 주소를 브이월드 도로명·지번 API로 정밀 보완">🇰🇷 브이월드 정밀 보완</button>
+          <button id="bCustNts" title="고객 사업자번호로 국세청 휴·폐업 일괄 확인">🏛 국세청 휴·폐업</button>
+          <button id="bOsm" title="매칭 실패 주소를 OpenStreetMap에서 검색">🌐 OSM</button>
+          <button id="bCustClear">지우기</button>
+        </div>
+        <div id="cFail"></div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: 개폐업 ===== -->
+    <div class="tabpane" id="tab-cmp">
+      <div class="card2">
+        <div style="font-weight:700;margin-bottom:4px">📈 분기 비교 · 신규 개업 / 폐업</div>
+        <div class="note">현재 데이터에 <b>이전 분기</b> ZIP/CSV를 불러오면 <b>상가업소번호</b>와 <b>상호+주소</b>로 이중 대조해 신규 개업과 폐업을 찾아냅니다.</div>
+      </div>
+      <div class="drop" id="bdrop"><b>이전 분기 ZIP / CSV 선택</b>예) …상가(상권)정보_20260630.zip</div>
+      <input type="file" id="baseIn" accept=".csv,.zip,text/csv,application/zip" multiple style="display:none">
+      <div id="blist" style="margin-top:8px"></div>
+      <div id="cmpres" style="display:none;margin-top:10px">
+        <div class="kpis" id="cmpKpi"></div>
+        <div class="row2" style="margin:6px 0 10px">
+          <span class="note">색상</span>
+          <div class="seg"><button data-cm="l1">업종</button><button data-cm="st">개폐업</button></div>
+          <span class="note" style="margin-left:6px">보기</span>
+          <div class="seg"><button data-sv="all">전체</button><button data-sv="1">신규</button><button data-sv="2">폐업</button><button data-sv="12">신규+폐업</button></div>
+        </div>
+        <div class="row2" style="margin-bottom:12px">
+          <button class="primary" id="bExpNew">⤓ 신규 개업 CSV</button><button id="bExpClosed">⤓ 폐업 CSV</button>
+        </div>
+        <div class="note" style="margin-bottom:8px">아래 순위는 <b>현재 필터(지역·업종·검색)</b> 기준입니다.</div>
+        <div class="sec"><h3>업종 대분류별</h3><table class="cmptbl" id="cmpL1"></table></div>
+        <div class="sec"><h3>신규 개업 많은 업종 (중분류)</h3><div class="brk" id="cmpNewL2"></div></div>
+        <div class="sec"><h3>폐업 많은 업종 (중분류)</h3><div class="brk" id="cmpClosedL2"></div></div>
+        <div class="sec"><h3 id="cmpRegT">지역별 (시군구)</h3><table class="cmptbl" id="cmpReg"></table></div>
+        <div class="card2">
+          <div style="font-weight:700;margin-bottom:6px">🔗 고객 연계</div>
+          <div class="row2"><button id="bRisk">고객 폐업 의심 찾기</button><button id="bCustNew">고객 반경 내 신규 개업 선택</button></div>
+          <div class="note" style="margin-top:6px">폐업 의심 = 고객 위치 20m 안에서 <b>상호가 같은 업소가 폐업</b>으로 나온 경우</div>
+          <div id="riskList" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: 목록 ===== -->
+    <div class="tabpane" id="tab-list">
+      <div class="row2" style="margin-bottom:8px">
+        <div class="note" id="listInfo" style="flex:1">지도를 움직이면 화면 안 업소가 표시됩니다.</div>
+        <button id="bSelView" title="화면 안의 필터 결과를 모두 선택">화면 전체 선택</button>
+      </div>
+      <div id="vlist"></div>
+    </div>
+  </div>
+
+  <!-- ===== Map Area ===== -->
+  <div id="mapwrap">
+    <div id="map"></div>
+    <div id="gsearch">
+      <div class="box">
+        <input type="search" id="gq" placeholder="주소 · 건물 · 동 · 상호 검색 (Enter)">
+        <button id="gbtn" title="검색">🔍</button>
+      </div>
+      <div id="gres"></div>
+    </div>
+    <div id="hint"></div>
+    <div id="empty">
+      <div class="card">
+        <h2>🔐 상권 Vault 잠금 해제 완료</h2>
+        <div class="note" id="emptyMeta" style="font-size:12.5px;margin-bottom:10px">전국 상가(상권)정보를 시도별로 즉시 복호화하거나 실시간 OpenAPI로 조회할 수 있습니다.</div>
+        <div class="sido-grid" id="emptySidoGrid"></div>
+        <div class="row2" style="justify-content:center;margin-top:12px">
+          <button class="primary" id="bOpenApiTab" style="padding:7px 14px">🔌 실시간 OpenAPI 조회</button>
+          <button id="bOpen2" style="padding:7px 14px">📂 로컬 ZIP / CSV 열기</button>
+        </div>
+      </div>
+    </div>
+    <div id="legend" style="display:none"></div>
+    <div id="selpanel" class="hide">
+      <div class="hd"><b>선택 업소</b> <span id="selCnt" class="note"></span><button style="margin-left:auto" id="selClose">✕</button></div>
+      <div class="acts">
+        <button class="primary" id="bExportSel">⤓ 선택 CSV</button>
+        <button id="bAiSel">✨ AI 분석</button>
+        <button id="bFitSel">⌖ 이동</button>
+        <button id="bClearSel">해제</button>
+      </div>
+      <div class="body" id="selBody"></div>
+    </div>
+    <div id="busy"><div class="card"><div id="busyMsg">처리 중…</div><div class="bar"><i id="busyBar"></i></div></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== Scrim & Modals ==================== -->
+<div class="scrim" id="scrim"></div>
+
+<div class="modal" id="settingsModal" aria-hidden="true">
+  <div class="mhead">
+    <h3>⚙️ 앱 설정 · API 계정 · 보안</h3>
+    <button type="button" id="closeSettings">닫기</button>
+  </div>
+  <div class="mblock">
+    <div class="mt">화면 테마</div>
+    <div class="chips" id="setThemeChips">
+      <span class="chip" data-th="clean">클린화이트</span>
+      <span class="chip" data-th="navy">다크네이비</span>
+      <span class="chip" data-th="purple">미드나잇퍼플</span>
+      <span class="chip" data-th="forest">포레스트그린</span>
+      <span class="chip" data-th="obsidian">옵시디언블랙</span>
+    </div>
+  </div>
+  <div class="mblock">
+    <div class="mt">🔑 공공데이터포털 일반 인증키 (로컬 전용)</div>
+    <div class="note" style="margin-bottom:6px">소상공인 상가(상권)정보 OpenAPI(sdsc2) 및 국세청 사업자상태 조회에 사용됩니다. Encoding/Decoding 자동 정규화 지원.</div>
+    <div class="key-row">
+      <input type="password" id="setDataGoKey" placeholder="공공데이터포털 일반 인증키">
+      <button type="button" id="setDataGoEye" title="키 보기/숨기기">👁</button>
+      <button type="button" id="saveDataGoKey" class="primary">저장</button>
+    </div>
+    <div class="note" style="margin-top:4px">현재 저장 키: <code id="setDataGoMask">미입력</code></div>
+  </div>
+  <div class="mblock">
+    <div class="mt">🗺 브이월드 디지털트윈국토 인증키 (배경지도 · 지적 · 용도지역 · 공시지가)</div>
+    <div class="note" style="margin-bottom:6px">Vault 암호화 번들에 기본 키가 안전하게 내장되어 있으며, 새 키를 입력해 이 브라우저에서 덮어쓸 수 있습니다.</div>
+    <div class="key-row">
+      <input type="password" id="setVwKey" placeholder="브이월드 인증키 (비우면 Vault 기본 키 사용)">
+      <button type="button" id="setVwEye" title="키 보기/숨기기">👁</button>
+      <button type="button" id="saveVwKey" class="primary">저장</button>
+    </div>
+    <div class="note" style="margin-top:4px">적용 키: <code id="setVwMask">확인 중…</code></div>
+  </div>
+  <div class="mblock">
+    <div class="mt">✨ Gemini API 키 (AI 상권 분석 · 자연어 필터)</div>
+    <div class="note" style="margin-bottom:6px">Google AI Studio 키를 입력하면 선택 상권·화면 상권 AI 전략 분석과 자연어 필터 검색이 동작합니다.</div>
+    <div class="key-row">
+      <input type="password" id="setGeminiKey" placeholder="AIza...">
+      <button type="button" id="setGeminiEye" title="키 보기/숨기기">👁</button>
+      <button type="button" id="saveGeminiKey" class="primary">저장</button>
+    </div>
+    <div class="note" style="margin-top:4px">현재 저장 키: <code id="setGeminiMask">미입력</code></div>
+  </div>
+  <div class="mblock">
+    <div class="mt">📱 모바일 홈 화면 설치 (PWA)</div>
+    <div class="note" style="margin-bottom:6px">iPhone Safari: 공유(↑) → <b>홈 화면에 추가</b> · Android Chrome: 메뉴(⋮) → <b>앱 설치</b></div>
+    <button type="button" id="pwaInstallBtn" hidden>📲 지금 앱 설치하기</button>
+  </div>
+  <div class="mblock">
+    <div class="mt">💾 설정 · 실시간 수집 데이터 백업 / 복원</div>
+    <div class="row2">
+      <button type="button" id="backupExport">백업 내려받기 (.json)</button>
+      <label style="cursor:pointer;display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px">백업 불러오기<input type="file" id="backupImport" accept=".json" hidden></label>
+    </div>
+  </div>
+  <div class="mblock">
+    <div class="mt">🔒 보안 Vault 및 캐시</div>
+    <div class="row2">
+      <button type="button" id="modalLockBtn" class="danger">지금 잠금 (로그아웃)</button>
+      <button type="button" id="clearCacheBtn">오프라인 캐시 새로고침</button>
+    </div>
+    <div class="note" id="vaultInfo" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<div class="modal" id="aiModal" aria-hidden="true">
+  <div class="mhead">
+    <h3 id="aiModalTitle">✨ Gemini AI 상권 분석</h3>
+    <div class="row2">
+      <button type="button" id="aiCopyBtn" class="primary">복사</button>
+      <button type="button" id="closeAiModal">닫기</button>
+    </div>
+  </div>
+  <div id="aiModalBody" class="ai-out">분석 준비 중…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="./vendor/leaflet.min.js"></script>
+<script src="./vendor/xlsx.full.min.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
